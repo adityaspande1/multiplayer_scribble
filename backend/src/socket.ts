@@ -1,38 +1,43 @@
 import { Server, Socket } from "socket.io";
+import { createRoom,addUserToRoom, removeUser, getUsersInRoom } from "./controllers/roomController";
 
 export const setupSocket = (io: Server) => {
-    const rooms: { [key: string]: any } = {};
-
     io.on("connection", (socket: Socket) => {
-        console.log("New Client Connected :", socket.id);
+        console.log("New Client Connected:", socket.id);
+        socket.on("create-room", async (roomName: string) => {
+           const newRoom= await createRoom(roomName);
+              if(!newRoom){
+                console.log("Failed to create room");
+                return;
+              }
 
-        socket.on("join-room",(roomId:string,username:string)=>{
-            if(!rooms[roomId]){
-                rooms[roomId] = [];
-            }
-            //adding user to the room.
-            rooms[roomId].push({id:socket.id,username});
-            //we will send the updated player list to all the players in the room.
-            io.to(roomId).emit("playerUpdated",rooms[roomId]); 
+              console.log("New room created : ",newRoom);
         });
 
-        socket.on("draw",(roomId:string, data)=>{
-            console.log("Drawing data received from client",data);
-            socket.to(roomId).emit("onDraw", data);
+
+        socket.on("join-room", async (roomId: number, username: string) => {
+            const user = await addUserToRoom(username, socket.id, roomId);
+            if (!user) return;
+
+            socket.join(roomId.toString());
+
+            const updatedUsers = await getUsersInRoom(roomId);
+            io.to(roomId.toString()).emit("playerUpdated", updatedUsers);
         });
 
-        socket.on("sendMessage",(roomId:string, messsage:string)=>{
-            console.log("Message received from client",messsage);
-            socket.to(roomId).emit("messageRecieved",messsage);
+        socket.on("draw", (roomId: number, data) => {
+            console.log("Drawing data received:", data);
+            socket.to(roomId.toString()).emit("onDraw", data);
         });
 
-        socket.on("disconnect",()=>{
-            console.log("Client Disconnected : ",socket.id);
-            for(const roomId in rooms){
-                rooms[roomId]=rooms[roomId].filter((p:Socket)=>p.id !== socket.id);
-                io.to(roomId).emit("playerUpdated",rooms[roomId]); 
-            }
-        })
+        socket.on("sendMessage", (roomId: number, message: string) => {
+            console.log("Message received:", message);
+            socket.to(roomId.toString()).emit("messageReceived", message);
+        });
+
+        socket.on("disconnect", async () => {
+            console.log("Client Disconnected:", socket.id);
+            await removeUser(socket.id);
+        });
     });
-
 };
