@@ -65,3 +65,12 @@ export const removeUser = async (socketId: string): Promise<void> => {
         console.error("Error removing user:", error);
     }
 };
+
+//to update score of user
+export const updateUserScore = async (userId: number, points: number): Promise<void> => {
+    try {
+        await pool.query("UPDATE users SET score = score + $1 WHERE id = $2", [points, userId]);
+    } catch (error) {
+        console.error("Error updating score:", error);
+    }
+};

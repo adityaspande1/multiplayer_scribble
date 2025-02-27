@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.removeUser = exports.getUsersInRoom = exports.addUserToRoom = exports.getRooms = exports.createRoom = void 0;
+exports.updateUserScore = exports.removeUser = exports.getUsersInRoom = exports.addUserToRoom = exports.getRooms = exports.createRoom = void 0;
 const db_1 = require("../db/db");
 // Create a new room
 const createRoom = (roomName) => __awaiter(void 0, void 0, void 0, function* () {
@@ -73,3 +73,13 @@ const removeUser = (socketId) => __awaiter(void 0, void 0, void 0, function* () 
     }
 });
 exports.removeUser = removeUser;
+//to update score of user
+const updateUserScore = (userId, points) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        yield db_1.pool.query("UPDATE users SET score = score + $1 WHERE id = $2", [points, userId]);
+    }
+    catch (error) {
+        console.error("Error updating score:", error);
+    }
+});
+exports.updateUserScore = updateUserScore;

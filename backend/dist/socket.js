@@ -11,6 +11,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.setupSocket = void 0;
 const roomController_1 = require("./controllers/roomController");
+const wordSelector_1 = require("./utils/wordSelector");
+const activeGames = {};
 const setupSocket = (io) => {
     io.on("connection", (socket) => {
         console.log("New Client Connected:", socket.id);
@@ -20,7 +22,7 @@ const setupSocket = (io) => {
                 console.log("Failed to create room");
                 return;
             }
-            console.log("New room created : ", newRoom);
+            console.log("New room created:", newRoom);
         }));
         socket.on("join-room", (roomId, username) => __awaiter(void 0, void 0, void 0, function* () {
             const user = yield (0, roomController_1.addUserToRoom)(username, socket.id, roomId);
@@ -30,14 +32,35 @@ const setupSocket = (io) => {
             const updatedUsers = yield (0, roomController_1.getUsersInRoom)(roomId);
             io.to(roomId.toString()).emit("playerUpdated", updatedUsers);
         }));
+        socket.on("start-game", (roomId) => __awaiter(void 0, void 0, void 0, function* () {
+            const users = yield (0, roomController_1.getUsersInRoom)(roomId);
+            if (users.length < 2) {
+                socket.emit("error", "Not enough players to start the game.");
+                return;
+            }
+            const randomUser = users[Math.floor(Math.random() * users.length)];
+            const word = (0, wordSelector_1.selectRandomWord)();
+            activeGames[roomId] = { word, drawingUser: randomUser.id };
+            io.to(roomId.toString()).emit("gameStarted", { word, drawingUser: randomUser });
+        }));
         socket.on("draw", (roomId, data) => {
             console.log("Drawing data received:", data);
             socket.to(roomId.toString()).emit("onDraw", data);
         });
-        socket.on("sendMessage", (roomId, message) => {
-            console.log("Message received:", message);
-            socket.to(roomId.toString()).emit("messageReceived", message);
-        });
+        socket.on("sendMessage", (roomId, message, userId) => __awaiter(void 0, void 0, void 0, function* () {
+            if (!activeGames[roomId])
+                return;
+            if (message.toLowerCase() === activeGames[roomId].word.toLowerCase()) {
+                yield (0, roomController_1.updateUserScore)(userId, 100);
+                const users = yield (0, roomController_1.getUsersInRoom)(roomId);
+                const nextDrawer = users.find(u => u.id !== activeGames[roomId].drawingUser);
+                activeGames[roomId] = { word: (0, wordSelector_1.selectRandomWord)(), drawingUser: nextDrawer.id };
+                io.to(roomId.toString()).emit("correctGuess", { userId, newWord: activeGames[roomId].word, newDrawer: nextDrawer });
+            }
+            else {
+                socket.to(roomId.toString()).emit("messageReceived", { message, userId });
+            }
+        }));
         socket.on("disconnect", () => __awaiter(void 0, void 0, void 0, function* () {
             console.log("Client Disconnected:", socket.id);
             yield (0, roomController_1.removeUser)(socket.id);

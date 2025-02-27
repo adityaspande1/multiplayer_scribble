@@ -1,28 +1,43 @@
 import { Server, Socket } from "socket.io";
-import { createRoom,addUserToRoom, removeUser, getUsersInRoom } from "./controllers/roomController";
+import { createRoom, addUserToRoom, removeUser, getUsersInRoom, updateUserScore } from "./controllers/roomController";
+import { selectRandomWord } from "./utils/wordSelector";
+
+const activeGames: { [roomId: number]: { word: string; drawingUser: number } } = {};
 
 export const setupSocket = (io: Server) => {
     io.on("connection", (socket: Socket) => {
         console.log("New Client Connected:", socket.id);
+        
         socket.on("create-room", async (roomName: string) => {
-           const newRoom= await createRoom(roomName);
-              if(!newRoom){
-                console.log("Failed to create room");
-                return;
-              }
-
-              console.log("New room created : ",newRoom);
+           const newRoom = await createRoom(roomName);
+           if (!newRoom) {
+               console.log("Failed to create room");
+               return;
+           }
+           console.log("New room created:", newRoom);
         });
-
 
         socket.on("join-room", async (roomId: number, username: string) => {
             const user = await addUserToRoom(username, socket.id, roomId);
             if (!user) return;
 
             socket.join(roomId.toString());
-
             const updatedUsers = await getUsersInRoom(roomId);
             io.to(roomId.toString()).emit("playerUpdated", updatedUsers);
+        });
+
+        socket.on("start-game", async (roomId: number) => {
+            const users = await getUsersInRoom(roomId);
+            if (users.length < 2) {
+                socket.emit("error", "Not enough players to start the game.");
+                return;
+            }
+            
+            const randomUser = users[Math.floor(Math.random() * users.length)];
+            const word = selectRandomWord();
+            activeGames[roomId] = { word, drawingUser: randomUser.id };
+
+            io.to(roomId.toString()).emit("gameStarted", { word, drawingUser: randomUser });
         });
 
         socket.on("draw", (roomId: number, data) => {
@@ -30,9 +45,20 @@ export const setupSocket = (io: Server) => {
             socket.to(roomId.toString()).emit("onDraw", data);
         });
 
-        socket.on("sendMessage", (roomId: number, message: string) => {
-            console.log("Message received:", message);
-            socket.to(roomId.toString()).emit("messageReceived", message);
+
+        socket.on("sendMessage", async (roomId: number, message: string, userId: number) => {
+            if (!activeGames[roomId]) return;
+            
+            if (message.toLowerCase() === activeGames[roomId].word.toLowerCase()) {
+                await updateUserScore(userId, 100);
+                const users = await getUsersInRoom(roomId);
+                const nextDrawer = users.find(u => u.id !== activeGames[roomId].drawingUser);
+                activeGames[roomId] = { word: selectRandomWord(), drawingUser: nextDrawer!.id };
+                
+                io.to(roomId.toString()).emit("correctGuess", { userId, newWord: activeGames[roomId].word, newDrawer: nextDrawer });
+            } else {
+                socket.to(roomId.toString()).emit("messageReceived", { message, userId });
+            }
         });
 
         socket.on("disconnect", async () => {
