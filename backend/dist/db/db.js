@@ -3,11 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const supabase_js_1 = require("@supabase/supabase-js");
 const dotenv_1 = __importDefault(require("dotenv"));
-dotenv_1.default.config(); // Load environment variables
-const supabaseUrl = 'https://dqnqkkldwsjlqgohgptv.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxbnFra2xkd3NqbHFnb2hncHR2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MDc1MDEyMSwiZXhwIjoyMDU2MzI2MTIxfQ.Yhcw_t0Qql8SIRcJBZ_QHnMW1TXd6ePXIegp26f9xdw';
+const path_1 = __importDefault(require("path"));
+const supabase_js_1 = require("@supabase/supabase-js");
+dotenv_1.default.config({ path: path_1.default.resolve(__dirname, "../../.env") });
+console.log("SUPABASE_URL:", JSON.stringify(process.env.SUPABASE_URL));
+console.log("SUPABASE_KEY:", JSON.stringify(process.env.SUPABASE_KEY));
+const supabaseUrl = process.env.SUPABASE_URL || "";
+const supabaseKey = process.env.SUPABASE_KEY || "";
 console.log("supabaseUrl", supabaseUrl);
 console.log("supabaseKey", supabaseKey);
 if (!supabaseKey) {
