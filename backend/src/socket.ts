@@ -4,6 +4,8 @@ import { selectRandomWord } from "./utils/wordSelector";
 
 const activeGames: { [roomId: number]: { word: string; drawingUser: number } } = {};
 
+const selectedWord: { [key: number]: string } = {}; // Track words per room
+
 export const setupSocket = (io: Server) => {
     io.on("connection", (socket: Socket) => {
         console.log("New Client Connected:", socket.id);
@@ -66,4 +68,14 @@ export const setupSocket = (io: Server) => {
             await removeUser(socket.id);
         });
     });
+};
+
+const switchTurn = async (io: Server, roomId: number) => {
+    const users = await getUsersInRoom(roomId);
+    if (users.length === 0) return;
+
+    const nextDrawer = users[Math.floor(Math.random() * users.length)];
+    selectedWord[roomId] = selectRandomWord(); 
+
+    io.to(roomId.toString()).emit("newRound", { drawer: nextDrawer.id, word: selectedWord[roomId] });
 };

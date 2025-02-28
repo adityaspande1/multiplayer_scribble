@@ -13,6 +13,7 @@ exports.setupSocket = void 0;
 const roomController_1 = require("./controllers/roomController");
 const wordSelector_1 = require("./utils/wordSelector");
 const activeGames = {};
+const selectedWord = {}; // Track words per room
 const setupSocket = (io) => {
     io.on("connection", (socket) => {
         console.log("New Client Connected:", socket.id);
@@ -68,3 +69,11 @@ const setupSocket = (io) => {
     });
 };
 exports.setupSocket = setupSocket;
+const switchTurn = (io, roomId) => __awaiter(void 0, void 0, void 0, function* () {
+    const users = yield (0, roomController_1.getUsersInRoom)(roomId);
+    if (users.length === 0)
+        return;
+    const nextDrawer = users[Math.floor(Math.random() * users.length)];
+    selectedWord[roomId] = (0, wordSelector_1.selectRandomWord)();
+    io.to(roomId.toString()).emit("newRound", { drawer: nextDrawer.id, word: selectedWord[roomId] });
+});

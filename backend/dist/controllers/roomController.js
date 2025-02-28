@@ -8,14 +8,23 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateUserScore = exports.removeUser = exports.getUsersInRoom = exports.addUserToRoom = exports.getRooms = exports.createRoom = void 0;
-const db_1 = require("../db/db");
+const db_1 = __importDefault(require("../db/db"));
 // Create a new room
 const createRoom = (roomName) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const result = yield db_1.pool.query("INSERT INTO rooms (name) VALUES ($1) RETURNING *", [roomName]);
-        return Object.assign(Object.assign({}, result.rows[0]), { users: [] });
+        const { data, error } = yield db_1.default
+            .from("rooms")
+            .insert([{ name: roomName }])
+            .select()
+            .single();
+        if (error)
+            throw error;
+        return { id: data.id, name: data.name, createdAt: data.createdAt, users: [] };
     }
     catch (error) {
         console.error("Error creating room:", error);
@@ -26,12 +35,17 @@ exports.createRoom = createRoom;
 // Get all rooms with users
 const getRooms = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const result = yield db_1.pool.query(`SELECT r.*, 
-            COALESCE(json_agg(u.*) FILTER (WHERE u.id IS NOT NULL), '[]') AS users
-            FROM rooms r
-            LEFT JOIN users u ON r.id = u.room_id
-            GROUP BY r.id`);
-        return result.rows;
+        const { data, error } = yield db_1.default
+            .from("rooms")
+            .select("*, users(*)");
+        if (error)
+            throw error;
+        return data.map((row) => ({
+            id: row.id,
+            name: row.name,
+            createdAt: row.createdAt,
+            users: row.users || []
+        }));
     }
     catch (error) {
         console.error("Error fetching rooms:", error);
@@ -42,8 +56,35 @@ exports.getRooms = getRooms;
 // Add user to a room
 const addUserToRoom = (username, socketId, roomId) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const result = yield db_1.pool.query("INSERT INTO users (username, socket_id, room_id) VALUES ($1, $2, $3) RETURNING *", [username, socketId, roomId]);
-        return result.rows[0];
+        const parsedRoomId = parseInt(roomId, 10);
+        if (isNaN(parsedRoomId)) {
+            console.error("Invalid room ID:", roomId);
+            return null;
+        }
+        // Check if room exists
+        const { data: room, error: roomError } = yield db_1.default
+            .from("rooms")
+            .select("*")
+            .eq("id", parsedRoomId)
+            .single();
+        if (roomError || !room) {
+            console.error(`Room with ID ${parsedRoomId} does not exist.`);
+            return null;
+        }
+        const { data, error } = yield db_1.default
+            .from("users")
+            .insert([{ username, socket_id: socketId, room_id: parsedRoomId }])
+            .select()
+            .single();
+        if (error)
+            throw error;
+        return {
+            id: data.id,
+            username: data.username,
+            socketId: data.socket_id,
+            room_id: data.room_id,
+            score: data.score
+        };
     }
     catch (error) {
         console.error("Error adding user to room:", error);
@@ -54,8 +95,18 @@ exports.addUserToRoom = addUserToRoom;
 // Get all users in a room
 const getUsersInRoom = (roomId) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const result = yield db_1.pool.query("SELECT * FROM users WHERE room_id = $1", [roomId]);
-        return result.rows;
+        const parsedRoomId = parseInt(roomId, 10);
+        if (isNaN(parsedRoomId)) {
+            console.error("Invalid room ID:", roomId);
+            return [];
+        }
+        const { data, error } = yield db_1.default
+            .from("users")
+            .select("*")
+            .eq("room_id", parsedRoomId);
+        if (error)
+            throw error;
+        return data;
     }
     catch (error) {
         console.error("Error fetching users:", error);
@@ -66,17 +117,27 @@ exports.getUsersInRoom = getUsersInRoom;
 // Remove user from a room
 const removeUser = (socketId) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        yield db_1.pool.query("DELETE FROM users WHERE socket_id = $1", [socketId]);
+        const { error } = yield db_1.default
+            .from("users")
+            .delete()
+            .eq("socket_id", socketId);
+        if (error)
+            throw error;
     }
     catch (error) {
         console.error("Error removing user:", error);
     }
 });
 exports.removeUser = removeUser;
-//to update score of user
+// Update user score
 const updateUserScore = (userId, points) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        yield db_1.pool.query("UPDATE users SET score = score + $1 WHERE id = $2", [points, userId]);
+        const { error } = yield db_1.default
+            .from("users")
+            .update({ score: db_1.default.rpc("increment", { x: points }) })
+            .eq("id", userId);
+        if (error)
+            throw error;
     }
     catch (error) {
         console.error("Error updating score:", error);

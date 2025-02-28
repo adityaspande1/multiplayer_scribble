@@ -10,4 +10,5 @@ export interface User{
     username: string,
     socketId: string,   
     room_id:string,
+    score:number,
 }
