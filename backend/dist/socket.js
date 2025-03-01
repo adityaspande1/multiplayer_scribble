@@ -27,6 +27,7 @@ const setupSocket = (io) => {
         }));
         socket.on("join-room", (roomId, username) => __awaiter(void 0, void 0, void 0, function* () {
             const user = yield (0, roomController_1.addUserToRoom)(username, socket.id, roomId);
+            console.log("User joined room:", user);
             if (!user)
                 return;
             socket.join(roomId.toString());

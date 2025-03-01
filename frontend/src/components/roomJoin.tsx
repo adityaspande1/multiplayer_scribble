@@ -24,14 +24,15 @@ export default function RoomJoin({ onJoinRoom }: RoomJoinProps) {
     }
     
     const finalUsername = username.trim() || "Player" + Math.floor(Math.random() * 1000);
-    
+
     socket.emit("join-room", room, finalUsername);
+
     onJoinRoom(room, finalUsername);
   };
 
   const handleCreateRoom = () => {
-    const randomRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-    setRoom(randomRoomId);
+    // const randomRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    socket.emit("create-room", room);
   };
 
   return (
@@ -69,9 +70,9 @@ export default function RoomJoin({ onJoinRoom }: RoomJoinProps) {
             <button 
               onClick={handleCreateRoom}
               className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
-              title="Generate random room ID"
+              title="room ID"
             >
-              Random
+              Create Room
             </button>
           </div>
           {error && <p className="mt-1 text-sm text-red-500">{error}</p>}

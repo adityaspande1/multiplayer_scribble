@@ -10,6 +10,8 @@ export const createRoom = async (roomName: string): Promise<Room | null> => {
             .select()
             .single();
 
+            console.log("New room created:", data);
+
         if (error) throw error;
 
         return { id: data.id, name: data.name, createdAt: data.createdAt, users: [] };

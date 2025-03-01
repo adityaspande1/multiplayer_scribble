@@ -21,6 +21,7 @@ export const setupSocket = (io: Server) => {
 
         socket.on("join-room", async (roomId: number, username: string) => {
             const user = await addUserToRoom(username, socket.id, roomId);
+            console.log("User joined room:", user);
             if (!user) return;
 
             socket.join(roomId.toString());

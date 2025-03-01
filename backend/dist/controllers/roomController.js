@@ -22,6 +22,7 @@ const createRoom = (roomName) => __awaiter(void 0, void 0, void 0, function* () 
             .insert([{ name: roomName }])
             .select()
             .single();
+        console.log("New room created:", data);
         if (error)
             throw error;
         return { id: data.id, name: data.name, createdAt: data.createdAt, users: [] };
